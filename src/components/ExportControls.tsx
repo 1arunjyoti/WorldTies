@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-import * as d3 from 'd3';
 import { saveAs } from 'file-saver';
 import type { Feature } from 'geojson';
 

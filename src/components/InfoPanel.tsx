@@ -104,7 +104,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ selectedCountry, relationshipData
   }, []);
   
   // Updated drag handler for the three-state system
-  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const dragThreshold = 50;
     const velocityThreshold = 300;
 
