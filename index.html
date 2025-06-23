@@ -2,12 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WorldTies</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+
+    <script>
+      (function() {
+        // This IIFE (Immediately Invoked Function Expression) runs instantly
+        // to prevent the theme from flickering on page load.
+
+        function getInitialTheme() {
+          // 1. Check for a theme saved in localStorage
+          const storedTheme = localStorage.getItem('theme');
+          if (storedTheme) {
+            return storedTheme;
+          }
+
+          // 2. If no stored theme, check the user's OS-level preference
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          return prefersDark ? 'dark' : 'light';
+        }
+
+        const theme = getInitialTheme();
+        if (theme === 'dark') {
+          // If the theme is dark, apply the 'dark' class to the <html> element
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

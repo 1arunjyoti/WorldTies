@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import type { Feature } from 'geojson';
-import type { RelationshipData } from '../pages/Home';
+import type { RelationshipData } from '../types/data';
 import { getCountryCode, getCountryName } from '../Utils/Format_country_name';
 import { ColorScale } from '../Utils/ColorScale';
 import { conflictZones } from '../types/conflict';
@@ -15,7 +15,7 @@ interface InfoPanelProps {
 }
 
 // A small helper component to avoid repetition
-const RelationList: React.FC<{
+const RelationListInternal: React.FC<{
   title: string;
   titleColor: string;
   relations: [string, number][];
@@ -41,8 +41,9 @@ const RelationList: React.FC<{
     </ul>
   </div>
 );
+const RelationList = memo(RelationListInternal);
 
-const InfoPanel: React.FC<InfoPanelProps> = ({ selectedCountry, relationshipData, countries, onClose, onCountrySelect }) => {
+const InfoPanelInternal: React.FC<InfoPanelProps> = ({ selectedCountry, relationshipData, countries, onClose, onCountrySelect }) => {
   // State to manage the panel's position on mobile/tablet
   const [panelState, setPanelState] = useState<'closed' | 'peek' | 'expanded'>('closed');
   
@@ -61,14 +62,14 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ selectedCountry, relationshipData
   // --- Data processing with useMemo for performance ---
   const relations = useMemo(() => (countryData?.relations ? Object.entries(countryData.relations) : []), [countryData]);
 
-  const friendlyRelations = useMemo(() => relations
-    .filter(([, score]) => score > 0)
-    .sort(([, a], [, b]) => b - a)
+    const friendlyRelations = useMemo(() => relations
+    .filter(([, score]: [string, number]) => score > 0)
+    .sort(([, a]: [string, number], [, b]: [string, number]) => b - a)
     .slice(0, 5), [relations]);
 
-  const hostileRelations = useMemo(() => relations
-    .filter(([, score]) => score < 0)
-    .sort(([, a], [, b]) => a - b)
+    const hostileRelations = useMemo(() => relations
+    .filter(([, score]: [string, number]) => score < 0)
+    .sort(([, a]: [string, number], [, b]: [string, number]) => a - b)
     .slice(0, 5), [relations]);
 
   const relevantConflicts = useMemo(() => {
@@ -183,8 +184,16 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ selectedCountry, relationshipData
           >
             {/* --- Panel Header (Always Visible in Peek & Expanded states) --- */}
             <div 
+              role="button"
+              tabIndex={0}
+              aria-expanded={panelState === 'expanded'}
               className="p-4 flex-shrink-0 cursor-grab active:cursor-grabbing"
               onClick={() => isMobile && panelState === 'peek' && setPanelState('expanded')}
+              onKeyDown={(e) => {
+                if (isMobile && panelState === 'peek' && (e.key === 'Enter' || e.key === ' ')) {
+                  setPanelState('expanded');
+                }
+              }}
             >
               {isMobile && (
                 <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600 mb-4" />
@@ -229,13 +238,14 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ selectedCountry, relationshipData
                             .map(code => {
                               const country = countries.find(c => getCountryCode(c) === code);
                               return country ? (
-                                <span 
+                                <button 
                                   key={code}
+                                  type="button"
                                   className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer"
                                   onClick={() => handleItemClick(code)}
                                 >
                                   {getCountryName(country)}
-                                </span>
+                                </button>
                               ) : null;
                             })}
                         </div>
@@ -272,4 +282,5 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ selectedCountry, relationshipData
   );
 };
 
+const InfoPanel = memo(InfoPanelInternal);
 export default InfoPanel;

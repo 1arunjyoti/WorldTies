@@ -1,11 +1,18 @@
-import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useEffect, useState, forwardRef, useImperativeHandle, memo } from 'react';
 import * as d3 from 'd3';
 import type { Feature } from 'geojson';
-import type { RelationshipData } from '../pages/Home';
+import type { RelationshipData } from '../types/data';
 import { ColorScale } from '../Utils/ColorScale';
-import { getCountryCode } from '../Utils/Format_country_name';
+import { getCountryCode, type CountryFeatureProperties } from '../Utils/Format_country_name';
 import Legend from './Legend';
 import ExportControls from './ExportControls';
+
+interface ArcDataItem {
+  source: [number, number];
+  target: [number, number];
+  score: number;
+  key: string;
+}
 
 interface MapChartProps {
   countries: Feature[];
@@ -17,7 +24,7 @@ interface MapChartProps {
   projectionName: 'geoMercator' | 'geoOrthographic';
 }
 
-const MapChart = forwardRef<SVGSVGElement, MapChartProps>(({ 
+const MapChartInternal = forwardRef<SVGSVGElement, MapChartProps>(({ 
   countries, 
   relationshipData, 
   selectedCountry, 
@@ -82,7 +89,7 @@ const MapChart = forwardRef<SVGSVGElement, MapChartProps>(({
           tooltip.style('opacity', 1);
         })
         .on('mousemove', (event: MouseEvent, d: Feature) => {
-          const countryName = (d.properties as any)?.name || 'N/A';
+                    const countryName = (d.properties as CountryFeatureProperties)?.name || 'N/A';
           const [x, y] = d3.pointer(event, wrapperRef.current);
           tooltip
             .html(countryName)
@@ -158,7 +165,6 @@ const MapChart = forwardRef<SVGSVGElement, MapChartProps>(({
          .on('dblclick.zoom', null); // Disable double-click zoom
     }
   }, [projectionName, rotation]); // Rerun when projection changes or globe is rotated
-
 
   // Effect for updating styles when selectedCountry or selectedAlliance changes
   useEffect(() => {
@@ -271,8 +277,8 @@ const MapChart = forwardRef<SVGSVGElement, MapChartProps>(({
         };
     }).filter((d): d is NonNullable<typeof d> => d !== null);
 
-    g.selectAll('path.arc')
-        .data(arcData, (d: any) => d.key)
+    g.selectAll<SVGPathElement, ArcDataItem>('path.arc')
+        .data(arcData, (d: ArcDataItem) => d.key)
         .join(
             enter => {
                 const path = enter.append('path')
@@ -313,6 +319,7 @@ const MapChart = forwardRef<SVGSVGElement, MapChartProps>(({
   return (
     <div ref={wrapperRef} className="w-full h-full flex items-center justify-center relative">
       <svg ref={svgRef} className="w-full h-full">
+        {/* ... svg content ... */}
         <defs>
           <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
@@ -334,10 +341,11 @@ const MapChart = forwardRef<SVGSVGElement, MapChartProps>(({
         
         <div className="bg-white/80 dark:bg-gray-800/60 p-4 rounded-xl shadow-2xl backdrop-blur-md border border-gray-200 dark:border-white/10">
           <ExportControls 
-            svgRef={svgRef}
-            selectedCountry={selectedCountry}
-            relationshipData={relationshipData}
             countries={countries}
+            relationshipData={relationshipData}
+            selectedCountry={selectedCountry}
+            alliances={alliances}
+            selectedAlliance={selectedAlliance}
           />
         </div>
       </div>
@@ -357,6 +365,6 @@ const MapChart = forwardRef<SVGSVGElement, MapChartProps>(({
   );
 });
 
+const MapChart = memo(MapChartInternal);
 MapChart.displayName = 'MapChart';
-
 export default MapChart;

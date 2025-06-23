@@ -51,9 +51,15 @@ const sidebarAnimationVariants = {
 };
 
 const buttonAnimationVariants = {
-  // And the fix is here too: as const
-  open: { left: 288, rotate: 180, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] as const } },
-  closed: { left: 0, rotate: 0, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] as const } }
+  // Button position animation
+  open: { left: 288, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] as const } },
+  closed: { left: 0, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] as const } }
+};
+
+const iconAnimationVariants = {
+  // Icon rotation animation
+  open: { rotate: 180, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] as const } },
+  closed: { rotate: 0, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] as const } }
 };
 
 const ProjectionSwitcher: React.FC<{
@@ -202,13 +208,24 @@ const Sidebar: React.FC<SidebarProps> = ({
       <motion.button
         aria-label="Toggle Sidebar"
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="hidden md:flex absolute top-1/2 -translate-y-1/2 w-6 h-16 bg-gray-200 hover:bg-gray-300 dark:bg-slate-800/50 dark:hover:bg-slate-700/70 text-gray-800 dark:text-white flex items-center justify-center rounded-r-lg z-30 transition-colors duration-200"
+        className="hidden md:flex absolute top-1/2 -translate-y-1/2 w-8 h-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm border-y border-r border-slate-200 dark:border-slate-700 rounded-r-xl shadow-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center z-30 transition-colors duration-300"
         animate={isCollapsed ? 'closed' : 'open'}
         variants={buttonAnimationVariants}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        transition={{ duration: 0.2 }}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
+        <motion.svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+          variants={iconAnimationVariants}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m13 5 7 7-7 7M5 5l7 7-7 7" />
+        </motion.svg>
       </motion.button>
       
       <motion.aside
@@ -217,7 +234,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         variants={sidebarAnimationVariants}
         className="bg-white dark:bg-slate-900/95 backdrop-blur-sm border-r border-gray-200 dark:border-slate-800/50 shadow-2xl flex flex-col h-full z-20 overflow-hidden"
       >
-        <div className="h-full flex flex-col w-[288px]">
+        <div className="h-full flex flex-col w-[288px] pt-15 md:pt-0">
           <ProjectionSwitcher
             projectionName={projectionName}
             onProjectionChange={onProjectionChange}

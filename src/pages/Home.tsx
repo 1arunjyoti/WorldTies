@@ -1,9 +1,6 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
-import type { Feature, FeatureCollection, Geometry } from 'geojson';
-
-import worldData from '../data/world_map_medium.json';
-import relationshipData from '../data/relationships.json';
-import alliancesData from '../data/alliances.json';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { Feature, FeatureCollection } from 'geojson';
+import type { RelationshipData } from '../types/data';
 
 // Import components
 import Header from '../components/Header';
@@ -12,35 +9,76 @@ import Sidebar from '../components/Sidebar';
 import MapChart from '../components/MapChart';
 import InfoPanel from '../components/InfoPanel';
 
-// Type definition for our relationship data
-export interface RelationshipData {
-  [key: string]: {
-    name: string;
-    relations: { [partnerCode: string]: number };
-  };
+// Define a type for our fetched data to be stored in state
+interface AppData {
+  countries: Feature[];
+  relationships: RelationshipData;
+  alliances: { [key: string]: string[] };
 }
 
 export default function Home() {
+  // State for the fetched data
+  const [appData, setAppData] = useState<AppData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for user interactions
   const [selectedCountry, setSelectedCountry] = useState<Feature | null>(null);
   const [selectedAlliance, setSelectedAlliance] = useState<string | null>(null);
   const [projectionName, setProjectionName] = useState<'geoMercator' | 'geoOrthographic'>('geoMercator');
-  const mapRef = useRef<SVGSVGElement>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const countryFeatures = useMemo(() => {
-    return (worldData as FeatureCollection<Geometry, { name: string }>).features;
-  }, []); 
+  const mapRef = useRef<SVGSVGElement>(null);
 
+  // Effect to fetch all necessary data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch all data files in parallel for efficiency
+        const [worldRes, relRes, allianceRes] = await Promise.all([
+          fetch('/data/world_map_medium.json'),
+          fetch('/data/relationships.json'),
+          fetch('/data/alliances.json'),
+        ]);
+
+        if (!worldRes.ok || !relRes.ok || !allianceRes.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const worldData = await worldRes.json() as FeatureCollection;
+        const relationships = await relRes.json() as RelationshipData;
+        const alliances = await allianceRes.json();
+        
+        setAppData({
+          countries: worldData.features,
+          relationships,
+          alliances,
+        });
+      } catch (err) {
+        console.error("Failed to fetch map data:", err);
+        setError(err instanceof Error ? err.message : 'An unknown error occurred while loading data.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []); // Empty dependency array ensures this runs only once
+
+  // Memoized handlers for selection logic
   const handleCountrySelect = useCallback((country: Feature | null) => {
     setSelectedCountry(country);
     if (country) {
-      setSelectedAlliance(null); // Deselect alliance when a country is selected
+      setSelectedAlliance(null);
     }
+    // Close mobile menu on selection
+    setIsMobileMenuOpen(false);
   }, []);
 
   const handleAllianceSelect = useCallback((alliance: string | null) => {
     setSelectedAlliance(alliance);
     if (alliance) {
-      setSelectedCountry(null); // Deselect country when an alliance is selected
+      setSelectedCountry(null);
     }
   }, []);
 
@@ -48,9 +86,22 @@ export default function Home() {
     setProjectionName(name);
   }, []);
 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const closeMobileMenu = useCallback(() => setIsMobileMenuOpen(false), []);
 
+  // --- Render logic based on loading and error states ---
+
+  if (isLoading) {
+    return <div className="w-full h-screen flex items-center justify-center bg-gray-900 text-white">Loading Map Data...</div>;
+  }
+
+  if (error || !appData) {
+    return <div className="w-full h-screen flex flex-col items-center justify-center bg-red-100 text-red-800">
+      <h2 className="text-2xl font-bold">Failed to load Application Data</h2>
+      <p className="mt-2">{error || 'The application data could not be found.'}</p>
+    </div>;
+  }
+
+  // --- Main component render once data is loaded ---
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white font-['Inter',_sans-serif] overflow-hidden transition-colors duration-300">
       <Header />
@@ -62,13 +113,9 @@ export default function Home() {
           aria-label="Toggle menu"
         >
           {isMobileMenuOpen ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
           )}
         </button>
 
@@ -76,13 +123,10 @@ export default function Home() {
         <div className={`fixed md:static inset-y-0 left-0 z-30 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
           <div className="h-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg md:backdrop-blur-sm border-r border-gray-200 dark:border-gray-700 shadow-xl md:shadow-none">
             <Sidebar 
-              countries={countryFeatures}
+              countries={appData.countries}
               selectedCountry={selectedCountry}
-              onCountrySelect={(country) => {
-                handleCountrySelect(country);
-                closeMobileMenu();
-              }}
-              alliances={alliancesData}
+              onCountrySelect={handleCountrySelect}
+              alliances={appData.alliances}
               selectedAlliance={selectedAlliance}
               onAllianceSelect={handleAllianceSelect}
               projectionName={projectionName}
@@ -94,29 +138,31 @@ export default function Home() {
         {/* Overlay for mobile menu */}
         {isMobileMenuOpen && (
           <div 
+            role="button" tabIndex={0} aria-label="Close menu"
             className="fixed inset-0 bg-black/50 z-20 md:hidden"
             onClick={closeMobileMenu}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') closeMobileMenu(); }}
           />
         )}
 
         {/* Main content */}
         <div className="flex-1 relative w-full h-full">
           <MapChart
-            countries={countryFeatures}
-            relationshipData={relationshipData as RelationshipData}
+            ref={mapRef}
+            countries={appData.countries}
+            relationshipData={appData.relationships}
             selectedCountry={selectedCountry}
             onCountrySelect={handleCountrySelect}
-            alliances={alliancesData}
+            alliances={appData.alliances}
             selectedAlliance={selectedAlliance}
             projectionName={projectionName}
-            ref={mapRef}
           />
           <InfoPanel 
             selectedCountry={selectedCountry}
-            relationshipData={relationshipData as RelationshipData}
+            relationshipData={appData.relationships}
             onClose={() => handleCountrySelect(null)}
             onCountrySelect={handleCountrySelect}
-            countries={countryFeatures}
+            countries={appData.countries}
           />
         </div>
       </main>
