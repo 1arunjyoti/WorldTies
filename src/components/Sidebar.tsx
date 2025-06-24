@@ -45,7 +45,6 @@ const itemVariants = {
 
 // Variants to control the sidebar and button animations together
 const sidebarAnimationVariants = {
-  // The fix is here: as const
   open: { width: 288, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] as const } },
   closed: { width: 0, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] as const } }
 };
