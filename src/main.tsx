@@ -5,7 +5,7 @@ import { Provider } from 'react-redux'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx'
-import './index.css' // Make sure your Tailwind directives are in here
+import './index.css' 
 import { ThemeProvider } from './contexts/ThemeContext';
 import { store } from './store';
 
@@ -16,7 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-                    <BrowserRouter>
+          <BrowserRouter>
             <App />
           </BrowserRouter>
         </ThemeProvider>

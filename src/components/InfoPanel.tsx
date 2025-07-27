@@ -12,6 +12,7 @@ interface InfoPanelProps {
   countries: Feature[];
   relationshipData: RelationshipData;
   isLoading: boolean;
+  error?: Error | null;
 }
 
 // A small helper component to avoid repetition
@@ -43,7 +44,7 @@ const RelationListInternal: React.FC<{
 );
 const RelationList = memo(RelationListInternal);
 
-const InfoPanelInternal: React.FC<InfoPanelProps> = ({ countries, relationshipData, isLoading }) => {
+const InfoPanelInternal: React.FC<InfoPanelProps> = ({ countries, relationshipData, isLoading, error }) => {
   const dispatch = useAppDispatch();
   const selectedCountry = useAppSelector(selectSelectedCountry);
 
@@ -178,6 +179,16 @@ const InfoPanelInternal: React.FC<InfoPanelProps> = ({ countries, relationshipDa
           >
             <div className="w-full h-full flex items-center justify-center p-4">
               <p>Loading relationship data...</p>
+            </div>
+          </motion.div>
+        ) : error ? (
+          <motion.div /* ...animation props... */ >
+            <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
+              <h3 className="font-bold text-red-500">Error</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Could not load data for {getCountryName(selectedCountry)}.
+              </p>
+              <p className="mt-1 text-xs text-gray-400">{error.message}</p>
             </div>
           </motion.div>
         ) : (

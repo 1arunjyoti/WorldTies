@@ -4,7 +4,7 @@ const Home = lazy(() => import('./pages/Home'));
 
 function App() {
   return (
-    <Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-gray-900 text-white">Loading...</div>}>
+    <Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Loading...</div>}>
       <Home />
     </Suspense>
   );

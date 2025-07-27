@@ -97,7 +97,7 @@ const AllianceFilter: React.FC<{
         onChange={(e) => onAllianceSelect(e.target.value || null)}
         className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
       >
-        <option value="">-- Select Alliance --</option>
+        <option value="">Select Alliance</option>
         {allianceNames.map(name => (
           <option key={name} value={name}>
             {name}
