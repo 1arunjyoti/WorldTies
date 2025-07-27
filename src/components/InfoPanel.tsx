@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import type { Feature } from 'geojson';
 import type { RelationshipData } from '../types/data';
 import { getCountryCode, getCountryName } from '../Utils/Format_country_name';
 import { ColorScale } from '../Utils/ColorScale';
 import { conflictZones } from '../types/conflict';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { selectCountry as selectCountryAction, selectSelectedCountry } from '../store/slices/uiSlice';
 
 interface InfoPanelProps {
-  selectedCountry: Feature | null;
-  relationshipData: RelationshipData;
   countries: Feature[];
-  onClose: () => void;
-  onCountrySelect: (country: Feature) => void;
+  relationshipData: RelationshipData;
+  isLoading: boolean;
 }
 
 // A small helper component to avoid repetition
@@ -43,7 +43,17 @@ const RelationListInternal: React.FC<{
 );
 const RelationList = memo(RelationListInternal);
 
-const InfoPanelInternal: React.FC<InfoPanelProps> = ({ selectedCountry, relationshipData, countries, onClose, onCountrySelect }) => {
+const InfoPanelInternal: React.FC<InfoPanelProps> = ({ countries, relationshipData, isLoading }) => {
+  const dispatch = useAppDispatch();
+  const selectedCountry = useAppSelector(selectSelectedCountry);
+
+  const handleCountrySelect = useCallback((country: Feature) => {
+    dispatch(selectCountryAction(country));
+  }, [dispatch]);
+
+  const handleClose = useCallback(() => {
+    dispatch(selectCountryAction(null));
+  }, [dispatch]);
   // State to manage the panel's position on mobile/tablet
   const [panelState, setPanelState] = useState<'closed' | 'peek' | 'expanded'>('closed');
   
@@ -81,7 +91,7 @@ const InfoPanelInternal: React.FC<InfoPanelProps> = ({ selectedCountry, relation
   const handleItemClick = (partnerId: string) => {
     const newSelectedCountry = countries.find(c => getCountryCode(c) === partnerId);
     if (newSelectedCountry) {
-      onCountrySelect(newSelectedCountry);
+      handleCountrySelect(newSelectedCountry);
       // After selecting a new country, reset the panel to the clean "peek" state
       setPanelState('peek'); 
     }
@@ -90,7 +100,7 @@ const InfoPanelInternal: React.FC<InfoPanelProps> = ({ selectedCountry, relation
   const closePanel = () => {
     setPanelState('closed');
     // Ensure the parent component knows the selection has been cleared
-    onClose(); 
+    handleClose(); 
   };
   
   // --- Responsive and Interaction Logic ---
@@ -146,7 +156,7 @@ const InfoPanelInternal: React.FC<InfoPanelProps> = ({ selectedCountry, relation
   const panelVariants = {
     closed: { y: '100%' },
     peek: { y: `calc(100% - ${PEEK_HEIGHT})` },
-    expanded: { y: '30vh' }, // Opens to 70% of the screen height (100vh - 30vh)
+    expanded: { y: '2vh' }, // Opens to 85% of the screen height (100vh - 15vh)
   };
 
   const panelBaseClasses = "fixed md:absolute bg-white/90 dark:bg-gray-900/90 shadow-2xl backdrop-blur-md border border-gray-200 dark:border-white/10 z-50 flex flex-col";
@@ -155,19 +165,9 @@ const InfoPanelInternal: React.FC<InfoPanelProps> = ({ selectedCountry, relation
 
   return (
     <AnimatePresence>
-      {panelState !== 'closed' && selectedCountry && countryData && (
-        <>
-          {/* Mobile overlay - only appears when fully expanded to not block the map */}
-          {isMobile && panelState === 'expanded' && (
-            <motion.div
-              className="fixed inset-0 bg-black/50 z-40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setPanelState('peek')} // Tapping overlay collapses to peek state
-            />
-          )}
-          
+      {panelState !== 'closed' && selectedCountry && (
+        isLoading ? (
+          // Loading state
           <motion.div
             className={`${panelBaseClasses} ${isMobile ? mobileClasses : desktopClasses}`}
             initial={isMobile ? 'closed' : { opacity: 0, x: 50 }}
@@ -175,108 +175,96 @@ const InfoPanelInternal: React.FC<InfoPanelProps> = ({ selectedCountry, relation
             exit={isMobile ? 'closed' : { opacity: 0, x: 50 }}
             variants={isMobile ? panelVariants : {}}
             transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-            // Enable drag-to-interact functionality only on mobile
-            {...(isMobile ? {
-                drag: "y",
-                dragConstraints: { top: 0 },
-                onDragEnd: handleDragEnd
-            } : {})}
           >
-            {/* --- Panel Header (Always Visible in Peek & Expanded states) --- */}
-            <div 
-              role="button"
-              tabIndex={0}
-              aria-expanded={panelState === 'expanded'}
-              className="p-4 flex-shrink-0 cursor-grab active:cursor-grabbing"
-              onClick={() => isMobile && panelState === 'peek' && setPanelState('expanded')}
-              onKeyDown={(e) => {
-                if (isMobile && panelState === 'peek' && (e.key === 'Enter' || e.key === ' ')) {
-                  setPanelState('expanded');
-                }
-              }}
-            >
-              {isMobile && (
-                <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600 mb-4" />
-              )}
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold">{getCountryName(selectedCountry)}</h2>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); closePanel(); }} 
-                  className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 rounded-full p-1 transition-colors"
-                  aria-label="Close panel"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+            <div className="w-full h-full flex items-center justify-center p-4">
+              <p>Loading relationship data...</p>
             </div>
-            
-            {/* --- Scrollable Detailed Content (Only visible in Expanded state) --- */}
-            <div className="flex-grow space-y-6 overflow-y-auto px-4 pb-4 scrollbar-thin scrollbar-thumb-gray-600/50 hover:scrollbar-thumb-gray-500/50 scrollbar-track-transparent">
-              {relevantConflicts.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-bold text-amber-500 mb-2 uppercase tracking-wider">Active Conflicts</h3>
-                  <div className="space-y-3">
-                    {relevantConflicts.map((conflict) => (
-                      <div key={conflict.id} className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-medium text-gray-900 dark:text-white">{conflict.name}</h4>
-                          <span className={`text-xs px-2 py-1 rounded-full ${getIntensityColor(conflict.intensity)} bg-opacity-20`}>
-                            {conflict.intensity.charAt(0).toUpperCase() + conflict.intensity.slice(1)} Intensity
-                          </span>
-                        </div>
-                        <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                          {getConflictTypeLabel(conflict.type)} • Since {conflict.startYear}
-                        </div>
-                        <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">
-                          {conflict.description}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {conflict.countries
-                            .filter(code => code !== countryId)
-                            .map(code => {
-                              const country = countries.find(c => getCountryCode(c) === code);
-                              return country ? (
-                                <button 
-                                  key={code}
-                                  type="button"
-                                  className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer"
-                                  onClick={() => handleItemClick(code)}
-                                >
-                                  {getCountryName(country)}
-                                </button>
-                              ) : null;
-                            })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {friendlyRelations.length > 0 && (
-                <RelationList
-                  title="Top Allies"
-                  titleColor="text-green-400"
-                  relations={friendlyRelations}
-                  relationshipData={relationshipData}
-                  onItemClick={handleItemClick}
+          </motion.div>
+        ) : (
+          // Loaded state with data
+          countryData && (
+            <>
+              {/* Mobile overlay - only appears when fully expanded to not block the map */}
+              {isMobile && panelState === 'expanded' && (
+                <motion.div
+                  className="fixed inset-0 bg-black/50 z-40"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setPanelState('peek')} // Tapping overlay collapses to peek state
                 />
               )}
 
-              {hostileRelations.length > 0 && (
-                <RelationList
-                  title="Top Adversaries"
-                  titleColor="text-red-400"
-                  relations={hostileRelations}
-                  relationshipData={relationshipData}
-                  onItemClick={handleItemClick}
-                />
-              )}
-            </div>
-          </motion.div>
-        </>
+              <motion.div
+                className={`${panelBaseClasses} ${isMobile ? mobileClasses : desktopClasses}`}
+                initial={isMobile ? 'closed' : { opacity: 0, x: 50 }}
+                animate={isMobile ? panelState : { opacity: 1, x: 0 }}
+                exit={isMobile ? 'closed' : { opacity: 0, x: 50 }}
+                variants={isMobile ? panelVariants : {}}
+                transition={{ type: 'spring', stiffness: 400, damping: 40 }}
+                {...(isMobile ? { drag: 'y', dragConstraints: { top: 0 }, onDragEnd: handleDragEnd } : {})}
+              >
+                {/* Panel Header */}
+                <motion.div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={panelState === 'expanded'}
+                  className="p-4 flex-shrink-0 cursor-grab active:cursor-grabbing"
+                  onTap={() => isMobile && panelState === 'peek' && setPanelState('expanded')}
+                  onKeyDown={(e) => { if (isMobile && panelState === 'peek' && (e.key === 'Enter' || e.key === ' ')) { setPanelState('expanded'); } }}
+                >
+                  {isMobile && <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600 mb-4" />}
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold">{getCountryName(selectedCountry)}</h2>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); closePanel(); }}
+                      className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 rounded-full p-1 transition-colors"
+                      aria-label="Close panel"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                </motion.div>
+
+                {/* Scrollable Detailed Content */}
+                <div className="flex-grow space-y-6 overflow-y-auto px-4 pb-4 scrollbar-thin scrollbar-thumb-gray-600/50 hover:scrollbar-thumb-gray-500/50 scrollbar-track-transparent">
+                  {relevantConflicts.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-500 mb-2 uppercase tracking-wider">Active Conflicts</h3>
+                      <div className="space-y-3">
+                        {relevantConflicts.map((conflict) => (
+                          <div key={conflict.id} className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500">
+                            <div className="flex justify-between items-start">
+                              <h4 className="font-medium text-gray-900 dark:text-white">{conflict.name}</h4>
+                              <span className={`text-xs px-2 py-1 rounded-full ${getIntensityColor(conflict.intensity)} bg-opacity-20`}>
+                                {conflict.intensity.charAt(0).toUpperCase() + conflict.intensity.slice(1)} Intensity
+                              </span>
+                            </div>
+                            <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">{getConflictTypeLabel(conflict.type)} • Since {conflict.startYear}</div>
+                            <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">{conflict.description}</p>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {conflict.countries.filter(code => code !== countryId).map(code => {
+                                const country = countries.find(c => getCountryCode(c) === code);
+                                return country ? (
+                                  <button key={code} type="button" className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer" onClick={() => handleItemClick(code)}>
+                                    {getCountryName(country)}
+                                  </button>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {friendlyRelations.length > 0 && <RelationList title="Top Allies" titleColor="text-green-400" relations={friendlyRelations} relationshipData={relationshipData} onItemClick={handleItemClick} />}
+                  {hostileRelations.length > 0 && <RelationList title="Top Adversaries" titleColor="text-red-400" relations={hostileRelations} relationshipData={relationshipData} onItemClick={handleItemClick} />}
+                </div>
+              </motion.div>
+            </>
+          )
+        )
       )}
     </AnimatePresence>
   );

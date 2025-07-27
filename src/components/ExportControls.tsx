@@ -7,12 +7,11 @@ import type { Feature } from 'geojson';
 import { getCountryCode, type CountryFeatureProperties } from '../Utils/Format_country_name';
 import type { RelationshipData } from '../types/data';
 import { ColorScale } from '../Utils/ColorScale';
-
 interface ExportControlsProps {
   countries: Feature[];
   relationshipData: RelationshipData;
-  selectedCountry: Feature | null;
   alliances: { [key: string]: string[] };
+  selectedCountry: Feature | null;
   selectedAlliance: string | null;
 }
 
@@ -22,13 +21,13 @@ interface ExportControlsProps {
  * full-world view, regardless of the user's current map interaction.
  * @returns An SVG string representation of the full map.
  */
-const createFullMapSvgString = ({
-  countries,
-  relationshipData,
-  selectedCountry,
-  alliances,
-  selectedAlliance,
-}: ExportControlsProps): string => {
+const createFullMapSvgString = (
+  countries: Feature[],
+  relationshipData: RelationshipData,
+  selectedCountry: Feature | null,
+  alliances: { [key: string]: string[] },
+  selectedAlliance: string | null
+): string => {
   const EXPORT_WIDTH = 1800;
   const EXPORT_HEIGHT = 1000;
 
@@ -135,11 +134,11 @@ const createFullMapSvgString = ({
 };
 
 
-const ExportControls: React.FC<ExportControlsProps> = (props) => {
+const ExportControls: React.FC<ExportControlsProps> = ({ countries, relationshipData, alliances, selectedCountry, selectedAlliance }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const exportAsPNG = () => {
-    const svgString = createFullMapSvgString(props);
+    const svgString = createFullMapSvgString(countries, relationshipData, selectedCountry, alliances, selectedAlliance);
     const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(svgBlob);
     
@@ -170,14 +169,12 @@ const ExportControls: React.FC<ExportControlsProps> = (props) => {
   };
 
   const exportAsSVG = () => {
-    const svgString = createFullMapSvgString(props);
+    const svgString = createFullMapSvgString(countries, relationshipData, selectedCountry, alliances, selectedAlliance);
     const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
     saveAs(blob, `worldties-map-${new Date().toISOString().split('T')[0]}.svg`);
   };
 
   const exportAsCSV = () => {
-    // ... (This function remains unchanged)
-    const { selectedCountry, relationshipData, countries } = props;
     if (!selectedCountry) {
       interface CsvRow {
         'Source Country': string;
@@ -276,7 +273,7 @@ const ExportControls: React.FC<ExportControlsProps> = (props) => {
               title="Export relationships as CSV"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              {props.selectedCountry ? 'Country Data (CSV)' : 'All Data (CSV)'}
+              {selectedCountry ? 'Country Data (CSV)' : 'All Data (CSV)'}
             </button>
         </div>
       )}

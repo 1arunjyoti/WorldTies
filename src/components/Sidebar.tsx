@@ -1,19 +1,15 @@
 // src/components/Sidebar.tsx
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import type { Feature } from 'geojson';
 import SearchBar from './SearchBar';
 import { getCountryCode, getCountryName } from '../Utils/Format_country_name';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { selectCountry as selectCountryAction, selectAlliance as selectAllianceAction, setProjection, selectSelectedCountry, selectSelectedAlliance, selectProjectionType, setMobileMenuOpen, setSearchTerm, toggleSidebar, selectSearchTerm, selectSidebarCollapsed } from '../store/slices/uiSlice';
 
 interface SidebarProps {
   countries: Feature[];
-  selectedCountry: Feature | null;
-  onCountrySelect: (country: Feature | null) => void;
   alliances: { [key: string]: string[] };
-  selectedAlliance: string | null;
-  onAllianceSelect: (alliance: string | null) => void;
-  projectionName: 'geoMercator' | 'geoOrthographic';
-  onProjectionChange: (name: 'geoMercator' | 'geoOrthographic') => void;
 }
 
 // Variants for the list animation
@@ -112,18 +108,36 @@ const AllianceFilter: React.FC<{
   );
 };
 
-const Sidebar: React.FC<SidebarProps> = ({
-  countries,
-  selectedCountry,
-  onCountrySelect,
-  alliances,
-  selectedAlliance,
-  onAllianceSelect,
-  projectionName,
-  onProjectionChange,
-}) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(false);
+const Sidebar: React.FC<SidebarProps> = ({ countries, alliances }) => {
+  const dispatch = useAppDispatch();
+  const selectedCountry = useAppSelector(selectSelectedCountry);
+  const selectedAlliance = useAppSelector(selectSelectedAlliance);
+  const projectionName = useAppSelector(selectProjectionType);
+  const searchTerm = useAppSelector(selectSearchTerm);
+  const isCollapsed = useAppSelector(selectSidebarCollapsed);
+
+  const handleCountrySelect = useCallback((country: Feature | null) => {
+    dispatch(selectCountryAction(country));
+    // Close mobile menu on selection
+    dispatch(setMobileMenuOpen(false));
+  }, [dispatch]);
+
+  const handleAllianceSelect = useCallback((alliance: string | null) => {
+    dispatch(selectAllianceAction(alliance));
+  }, [dispatch]);
+
+  const handleProjectionChange = useCallback((name: 'geoMercator' | 'geoOrthographic') => {
+    dispatch(setProjection(name));
+  }, [dispatch]);
+
+  const handleSearch = useCallback((term: string) => {
+    dispatch(setSearchTerm(term));
+  }, [dispatch]);
+
+  const handleToggleSidebar = useCallback(() => {
+    dispatch(toggleSidebar());
+  }, [dispatch]);
+
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const listRef = useRef<HTMLUListElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -131,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const filteredCountries = useMemo(() => {
     let countriesToShow = countries;
 
-    if (selectedAlliance && alliances[selectedAlliance]) {
+    if (selectedAlliance && alliances && alliances[selectedAlliance]) {
       const memberCodes = new Set(alliances[selectedAlliance]);
       countriesToShow = countries.filter(c => memberCodes.has(getCountryCode(c) ?? ''));
     }
@@ -176,9 +190,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (isSearchFocused && filteredCountries.length > 0) {
-          onCountrySelect(filteredCountries[0]);
+          handleCountrySelect(filteredCountries[0]);
         } else if (focusedIndex >= 0) {
-          onCountrySelect(filteredCountries[focusedIndex]);
+          handleCountrySelect(filteredCountries[focusedIndex]);
         }
       }
     };
@@ -187,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [filteredCountries, focusedIndex, onCountrySelect]);
+  }, [filteredCountries, focusedIndex, handleCountrySelect]);
 
   // Effect to scroll the focused item into view
   useEffect(() => {
@@ -206,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className="relative h-full flex-shrink-0">
       <motion.button
         aria-label="Toggle Sidebar"
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        onClick={handleToggleSidebar}
         className="hidden md:flex absolute top-1/2 -translate-y-1/2 w-8 h-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm border-y border-r border-slate-200 dark:border-slate-700 rounded-r-xl shadow-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center z-30 transition-colors duration-300"
         animate={isCollapsed ? 'closed' : 'open'}
         variants={buttonAnimationVariants}
@@ -236,14 +250,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="h-full flex flex-col w-[288px] pt-15 md:pt-0">
           <ProjectionSwitcher
             projectionName={projectionName}
-            onProjectionChange={onProjectionChange}
+            onProjectionChange={handleProjectionChange}
           />
           <AllianceFilter
-            alliances={alliances}
+            alliances={alliances || {}}
             selectedAlliance={selectedAlliance}
-            onAllianceSelect={onAllianceSelect}
+            onAllianceSelect={handleAllianceSelect}
           />
-          <SearchBar ref={searchInputRef} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+          <SearchBar ref={searchInputRef} searchTerm={searchTerm} setSearchTerm={handleSearch} />
           <motion.nav 
             variants={listVariants}
             className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-track-transparent scrollbar-thumb-transparent hover:scrollbar-thumb-slate-600"
@@ -269,7 +283,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <motion.li key={uniqueKey} variants={itemVariants}>
                     <button
-                      onClick={() => onCountrySelect(country)}
+                      onClick={() => handleCountrySelect(country)}
                       className={buttonClass}
                     >
                       {getCountryName(country)}

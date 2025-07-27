@@ -1,11 +1,14 @@
-import { useRef, useEffect, useState, forwardRef, useImperativeHandle, memo } from 'react';
+import { useRef, useEffect, forwardRef, useImperativeHandle, memo, useCallback } from 'react';
 import * as d3 from 'd3';
 import type { Feature } from 'geojson';
-import type { RelationshipData } from '../types/data';
+
 import { ColorScale } from '../Utils/ColorScale';
 import { getCountryCode, type CountryFeatureProperties } from '../Utils/Format_country_name';
 import Legend from './Legend';
-import ExportControls from './ExportControls';
+
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { selectCountry as selectCountryAction, selectSelectedCountry, selectSelectedAlliance, selectProjectionType, setMapRotation, selectMapRotation } from '../store/slices/uiSlice';
+import type { RelationshipData } from '../types/data';
 
 interface ArcDataItem {
   source: [number, number];
@@ -17,25 +20,22 @@ interface ArcDataItem {
 interface MapChartProps {
   countries: Feature[];
   relationshipData: RelationshipData;
-  selectedCountry: Feature | null;
-  onCountrySelect: (country: Feature | null) => void;
   alliances: { [key: string]: string[] };
-  selectedAlliance: string | null;
-  projectionName: 'geoMercator' | 'geoOrthographic';
 }
 
-const MapChartInternal = forwardRef<SVGSVGElement, MapChartProps>(({ 
-  countries, 
-  relationshipData, 
-  selectedCountry, 
-  onCountrySelect, 
-  alliances, 
-  selectedAlliance, 
-  projectionName 
-}, ref) => {
+const MapChartInternal = forwardRef<SVGSVGElement, MapChartProps>(({ countries, relationshipData, alliances }, ref) => {
+  const dispatch = useAppDispatch();
+  const selectedCountry = useAppSelector(selectSelectedCountry);
+  const selectedAlliance = useAppSelector(selectSelectedAlliance);
+  const projectionName = useAppSelector(selectProjectionType);
+  const rotation = useAppSelector(selectMapRotation);
+
+  const handleCountrySelect = useCallback((country: Feature | null) => {
+    dispatch(selectCountryAction(country));
+  }, [dispatch]);
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [rotation, setRotation] = useState<[number, number]>([20, -20]);
+
 
   // Forward the ref to the parent component
   useImperativeHandle(ref, () => svgRef.current!);
@@ -50,7 +50,7 @@ const MapChartInternal = forwardRef<SVGSVGElement, MapChartProps>(({
 
     // Add click handler to the SVG for deselecting when clicking the background
     svg.on('click', () => {
-      onCountrySelect(null);
+      handleCountrySelect(null);
     });
 
     const updateMapLayout = () => {
@@ -83,7 +83,7 @@ const MapChartInternal = forwardRef<SVGSVGElement, MapChartProps>(({
         .on('click', (event: MouseEvent, d: Feature) => {
           // Stop the event from bubbling up to the SVG's click handler
           event.stopPropagation();
-          onCountrySelect(d);
+          handleCountrySelect(d);
         })
         .on('mouseover', () => {
           tooltip.style('opacity', 1);
@@ -116,7 +116,7 @@ const MapChartInternal = forwardRef<SVGSVGElement, MapChartProps>(({
       resizeObserver.disconnect();
       svg.on('click', null); // Clean up the listener
     };
-  }, [countries, onCountrySelect, projectionName, rotation]); // Re-run on projection change
+  }, [countries, handleCountrySelect, projectionName, rotation]); // Re-run on projection change
 
   // Effect for zoom, pan, and drag interactions
   useEffect(() => {
@@ -139,11 +139,11 @@ const MapChartInternal = forwardRef<SVGSVGElement, MapChartProps>(({
         .on('start', () => svg.classed('dragging', true))
         .on('drag', (event) => {
           const k = 0.5; // Rotation sensitivity
-          setRotation(prevRotation => [
-            prevRotation[0] + event.dx * k,
+          dispatch(setMapRotation([
+            rotation[0] + event.dx * k,
             // Clamp vertical rotation to avoid flipping the globe upside down
-            Math.max(-90, Math.min(90, prevRotation[1] - event.dy * k))
-          ]);
+            Math.max(-90, Math.min(90, rotation[1] - event.dy * k))
+          ]));
         })
         .on('end', () => svg.classed('dragging', false));
       
@@ -339,15 +339,7 @@ const MapChartInternal = forwardRef<SVGSVGElement, MapChartProps>(({
           <Legend />
         </div>
         
-        <div className="bg-white/80 dark:bg-gray-800/60 p-4 rounded-xl shadow-2xl backdrop-blur-md border border-gray-200 dark:border-white/10">
-          <ExportControls 
-            countries={countries}
-            relationshipData={relationshipData}
-            selectedCountry={selectedCountry}
-            alliances={alliances}
-            selectedAlliance={selectedAlliance}
-          />
-        </div>
+
       </div>
       
       <div id="tooltip" style={{
